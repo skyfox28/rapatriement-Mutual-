@@ -22,6 +22,8 @@
   --err-bg:rgba(255,107,129,0.16);
   --warn:#ffc766;
   --warn-bg:rgba(255,199,102,0.16);
+  --other:#c58bff;
+  --other-bg:rgba(197,139,255,0.18);
   --radius-lg:26px;
   --radius-md:18px;
   --radius-sm:12px;
@@ -162,6 +164,34 @@ body{
   background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0f1220;font-weight:700;font-size:15px;
 }
 
+/* ---------- session banner ---------- */
+.session-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;
+  background:var(--glass-bg-strong);border:1px solid var(--glass-border);border-radius:var(--radius-md);
+  padding:12px 16px;margin:16px 0 4px;
+}
+.session-banner .sb-title{font-weight:700;font-size:13.5px;}
+.session-banner .sb-sub{font-size:11.5px;color:var(--text-2);margin-top:2px;}
+
+/* ---------- toasts ---------- */
+.toast-container{position:fixed;top:18px;right:18px;left:auto;z-index:80;display:flex;flex-direction:column;gap:10px;max-width:min(360px,90vw);}
+.toast{
+  padding:14px 16px;border-radius:16px;text-align:left;
+  background:var(--glass-bg-strong);border:1px solid var(--glass-border);
+  backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);
+  box-shadow:var(--shadow-glass);font-size:13px;animation:toastIn .3s cubic-bezier(.2,.9,.3,1.2);
+}
+.toast.hide{animation:toastOut .25s ease forwards;}
+.toast.ok{background:var(--ok-bg);border-color:rgba(78,230,168,0.5);}
+.toast.err{background:var(--err-bg);border-color:rgba(255,107,129,0.5);}
+.toast.warn{background:var(--warn-bg);border-color:rgba(255,199,102,0.5);}
+.toast.info{background:rgba(125,216,255,0.2);border-color:rgba(125,216,255,0.5);}
+.toast .t-title{font-weight:700;margin-bottom:3px;}
+.toast .t-msg{color:var(--text-1);opacity:.85;line-height:1.35;}
+@keyframes toastIn{from{transform:translateX(40px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes toastOut{to{transform:translateX(40px);opacity:0;}}
+@media (max-width:520px){ .toast-container{left:12px;right:12px;top:12px;max-width:none;} }
+
 /* ---------- result ---------- */
 .result{margin-top:20px;border-radius:var(--radius-lg);padding:0;overflow:hidden;display:none;}
 .result.show{display:block;animation:pop .35s cubic-bezier(.2,.9,.3,1.2);}
@@ -170,10 +200,12 @@ body{
 .result.ok .result-inner{background:var(--ok-bg);border-top:1px solid rgba(78,230,168,0.4);}
 .result.err .result-inner{background:var(--err-bg);border-top:1px solid rgba(255,107,129,0.4);}
 .result.warn .result-inner{background:var(--warn-bg);border-top:1px solid rgba(255,199,102,0.4);}
+.result.other .result-inner{background:var(--other-bg);border-top:1px solid rgba(197,139,255,0.45);}
 .result-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:6px;}
 .result.ok .result-tag{color:var(--ok);}
 .result.err .result-tag{color:var(--err);}
 .result.warn .result-tag{color:var(--warn);}
+.result.other .result-tag{color:var(--other);}
 .um-value{font-size:48px;font-weight:800;font-family:'Consolas','Courier New',monospace;margin:8px 0 4px;word-break:break-all;letter-spacing:1px;}
 .um-caption{font-size:12.5px;color:var(--text-2);margin-bottom:16px;}
 .result-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px;}
@@ -201,6 +233,7 @@ tbody tr:hover{background:rgba(255,255,255,0.06);}
 .badge.ok{background:var(--ok-bg);color:var(--ok);}
 .badge.err{background:var(--err-bg);color:var(--err);}
 .badge.warn{background:var(--warn-bg);color:var(--warn);}
+.badge.other{background:var(--other-bg);color:var(--other);}
 .empty-hint{padding:26px 14px;text-align:center;color:var(--text-2);font-size:13px;}
 
 .footer-note{text-align:center;margin-top:30px;font-size:11.5px;color:var(--text-2);}
@@ -223,6 +256,8 @@ tbody tr:hover{background:rgba(255,255,255,0.06);}
   <div class="blob b3"></div>
   <div class="blob b4"></div>
 </div>
+
+<div class="toast-container" id="toastContainer"></div>
 
 <div class="app">
 
@@ -285,6 +320,15 @@ tbody tr:hover{background:rgba(255,255,255,0.06);}
         <div class="scan-ring">🔦</div>
         <h2 style="justify-content:center;">Zone de scan</h2>
         <p class="hint">Cliquez dans le champ, puis scannez le SSCC avec la douchette.</p>
+
+        <div class="session-banner" id="sessionBanner" style="display:none;">
+          <div>
+            <div class="sb-title" id="sbTitle"></div>
+            <div class="sb-sub" id="sbSub"></div>
+          </div>
+          <button class="btn-sm" id="endSessionBtn">Terminer</button>
+        </div>
+
         <form class="scan-form" id="scanForm" autocomplete="off">
           <input type="text" class="scan-input" id="scanInput" placeholder="Scannez ou saisissez un SSCC..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
           <button type="submit" class="scan-submit">Valider</button>
@@ -347,6 +391,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   var LS_SOUND = 'rm_sound';
   var LS_WORKBOOK = 'rm_workbook_v1';
   var LS_HISTORY = 'rm_history_v1';
+  var LS_SESSION = 'rm_session_v1';
 
   var state = {
     allRows: [],          // every data row read from the workbook
@@ -355,6 +400,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     fileName: '',
     loadedAt: '',
     history: [],          // {time, sscc, um, article, designation, dt, status}
+    session: null,        // {dt, jour, dateLabel} of the repatriation currently being scanned
     soundOn: true,
     currentUm: ''
   };
@@ -467,6 +513,20 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     } catch (e) { console.warn('Impossible de restaurer l\'historique:', e); }
   }
 
+  function persistSession() {
+    try {
+      if (state.session) localStorage.setItem(LS_SESSION, JSON.stringify(state.session));
+      else localStorage.removeItem(LS_SESSION);
+    } catch (e) { console.warn('Impossible de sauvegarder la session:', e); }
+  }
+
+  function restoreSession() {
+    try {
+      var raw = localStorage.getItem(LS_SESSION);
+      if (raw) state.session = JSON.parse(raw);
+    } catch (e) { console.warn('Impossible de restaurer la session:', e); }
+  }
+
   // ---------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------
@@ -480,6 +540,12 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     var d = new Date(iso);
     if (isNaN(d)) return iso;
     return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function dayName(v) {
+    if (!(v instanceof Date) || isNaN(v)) return '';
+    var name = v.toLocaleDateString('fr-FR', { weekday: 'long' });
+    return name.charAt(0).toUpperCase() + name.slice(1);
   }
 
   function escapeHtml(s) {
@@ -533,7 +599,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     var scannable = state.allRows.filter(function (r) { return r.sscc; });
     var total = scannable.length;
     var scannedSet = new Set();
-    state.history.forEach(function (h) { if (h.status === 'ok' || h.status === 'warn') scannedSet.add(h.sscc); });
+    state.history.forEach(function (h) { if (h.status === 'ok' || h.status === 'warn' || h.status === 'other') scannedSet.add(h.sscc); });
     var done = scannable.filter(function (r) { return scannedSet.has(r.sscc); }).length;
     var left = total - done;
 
@@ -562,9 +628,14 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       return;
     }
 
-    tag.textContent = duplicate ? '⚠️ Déjà scanné précédemment' : '✅ SSCC reconnu';
+    if (status === 'other') {
+      tag.textContent = '🔀 Autre rapatriement · DT ' + rec.dt;
+      caption.textContent = 'Ce SSCC n\'appartient pas au rapatriement en cours (DT ' + (state.session ? state.session.dt : '') + ').';
+    } else {
+      tag.textContent = duplicate ? '⚠️ Déjà scanné précédemment' : '✅ SSCC reconnu';
+      caption.textContent = 'UM à coller sur la palette · SSCC ' + code;
+    }
     um.textContent = rec.um || '—';
-    caption.textContent = 'UM à coller sur la palette · SSCC ' + code;
     state.currentUm = rec.um || '';
     copyBtn.style.display = 'inline-block';
 
@@ -591,8 +662,8 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     empty.style.display = 'none';
     var rows = state.history.slice().reverse().slice(0, 500);
     body.innerHTML = rows.map(function (h) {
-      var badgeClass = h.status === 'ok' ? 'ok' : (h.status === 'warn' ? 'warn' : 'err');
-      var badgeText = h.status === 'ok' ? 'OK' : (h.status === 'warn' ? 'DOUBLON' : 'INTROUVABLE');
+      var badgeClass = h.status === 'ok' ? 'ok' : (h.status === 'warn' ? 'warn' : (h.status === 'other' ? 'other' : 'err'));
+      var badgeText = h.status === 'ok' ? 'OK' : (h.status === 'warn' ? 'DOUBLON' : (h.status === 'other' ? 'AUTRE DT' : 'INTROUVABLE'));
       return '<tr>' +
         '<td>' + fmtTime(h.time) + '</td>' +
         '<td style="font-family:monospace;">' + escapeHtml(h.sscc) + '</td>' +
@@ -622,6 +693,29 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   }
 
   // ---------------------------------------------------------------
+  // Session banner (current DT/day being scanned) & toast alerts
+  // ---------------------------------------------------------------
+  function renderSessionBanner() {
+    var banner = $('sessionBanner');
+    if (!state.session) { banner.style.display = 'none'; return; }
+    banner.style.display = 'flex';
+    $('sbTitle').textContent = '📦 Rapatriement en cours : DT ' + state.session.dt;
+    $('sbSub').textContent = (state.session.jour ? state.session.jour + ' · ' : '') + state.session.dateLabel;
+  }
+
+  function showToast(type, title, msg) {
+    var container = $('toastContainer');
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = '<div class="t-title">' + escapeHtml(title) + '</div><div class="t-msg">' + escapeHtml(msg) + '</div>';
+    container.appendChild(el);
+    setTimeout(function () {
+      el.classList.add('hide');
+      setTimeout(function () { el.remove(); }, 260);
+    }, 4200);
+  }
+
+  // ---------------------------------------------------------------
   // Scan handling
   // ---------------------------------------------------------------
   function handleScan(raw) {
@@ -631,18 +725,40 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     var matches = state.index.get(code);
     var now = new Date().toISOString();
 
-    if (matches && matches.length) {
-      var rec = matches[0];
-      var duplicate = state.history.some(function (h) { return h.sscc === code && (h.status === 'ok' || h.status === 'warn'); });
-      var status = duplicate ? 'warn' : 'ok';
-      renderResult(status, rec, code, duplicate);
-      state.history.push({ time: now, sscc: code, um: rec.um, article: rec.article, designation: rec.designation, dt: rec.dt, status: status });
-      playSound(status);
-    } else {
+    if (!matches || !matches.length) {
       renderResult('err', null, code, false);
       state.history.push({ time: now, sscc: code, um: '-', article: '-', designation: '', dt: '-', status: 'err' });
       playSound('err');
+      showToast('err', 'SSCC introuvable', 'Le code ' + code + ' ne correspond à aucune ligne du fichier chargé.');
+      persistHistory();
+      renderHistory();
+      renderStats();
+      return;
     }
+
+    var rec = matches[0];
+
+    if (!state.session) {
+      state.session = { dt: rec.dt, jour: dayName(rec.aLivrerLe), dateLabel: fmtDate(rec.aLivrerLe) };
+      persistSession();
+      renderSessionBanner();
+      showToast('info', 'Début du rapatriement', 'DT ' + rec.dt + ' — ' + (state.session.jour ? state.session.jour + ' ' : '') + state.session.dateLabel);
+    } else if (rec.dt !== state.session.dt) {
+      renderResult('other', rec, code, false);
+      state.history.push({ time: now, sscc: code, um: rec.um, article: rec.article, designation: rec.designation, dt: rec.dt, status: 'other' });
+      playSound('err');
+      showToast('warn', 'Autre rapatriement !', 'Ce SSCC appartient au DT ' + rec.dt + ', pas au rapatriement en cours (DT ' + state.session.dt + ').');
+      persistHistory();
+      renderHistory();
+      renderStats();
+      return;
+    }
+
+    var duplicate = state.history.some(function (h) { return h.sscc === code && (h.status === 'ok' || h.status === 'warn'); });
+    var status = duplicate ? 'warn' : 'ok';
+    renderResult(status, rec, code, duplicate);
+    state.history.push({ time: now, sscc: code, um: rec.um, article: rec.article, designation: rec.designation, dt: rec.dt, status: status });
+    playSound(status);
 
     persistHistory();
     renderHistory();
@@ -695,8 +811,11 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
         state.dtSheets = parsed.dtSheets;
         state.fileName = file.name;
         state.loadedAt = new Date().toISOString();
+        state.session = null;
         persistWorkbook();
+        persistSession();
         renderFileStatus();
+        renderSessionBanner();
         renderStats();
         renderSearch('');
         $('scanInput').focus();
@@ -727,11 +846,10 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   // Init
   // ---------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
-    // theme
+    // theme: dark by default unless the user explicitly chose light before
     var savedTheme = null;
     try { savedTheme = localStorage.getItem(LS_THEME); } catch (e) {}
-    if (!savedTheme) savedTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    applyTheme(savedTheme);
+    applyTheme(savedTheme === 'light' ? 'light' : 'dark');
 
     var savedSound = null;
     try { savedSound = localStorage.getItem(LS_SOUND); } catch (e) {}
@@ -739,7 +857,9 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
 
     restoreWorkbook();
     restoreHistory();
+    restoreSession();
     renderFileStatus();
+    renderSessionBanner();
     renderStats();
     renderHistory();
 
@@ -795,9 +915,19 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       if (!state.history.length) return;
       if (!confirm('Vider tout l\'historique des scans ? Cette action est irréversible.')) return;
       state.history = [];
+      state.session = null;
       persistHistory();
+      persistSession();
       renderHistory();
       renderStats();
+      renderSessionBanner();
+    });
+
+    $('endSessionBtn').addEventListener('click', function () {
+      state.session = null;
+      persistSession();
+      renderSessionBanner();
+      showToast('info', 'Rapatriement terminé', 'Le prochain scan démarrera un nouveau rapatriement.');
     });
 
     $('manualSearch').addEventListener('input', function (e) { renderSearch(e.target.value); });
