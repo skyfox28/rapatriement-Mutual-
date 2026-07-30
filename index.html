@@ -139,6 +139,7 @@ body{
 
 .progress-bar{height:8px;border-radius:6px;background:rgba(255,255,255,0.12);overflow:hidden;margin-top:14px;}
 .progress-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--ok));transition:width .4s ease;}
+.stats-scope{margin-top:9px;font-size:11.5px;color:var(--text-2);min-height:14px;}
 
 /* ---------- scan zone ---------- */
 .scan-card{padding:26px;text-align:center;}
@@ -299,6 +300,7 @@ tbody tr:hover{background:rgba(255,255,255,0.06);}
         <div class="progress-bar" id="progressBar" style="display:none;">
           <div class="progress-fill" id="progressFill" style="width:0%;"></div>
         </div>
+        <div class="stats-scope" id="statsScope"></div>
       </div>
 
       <div class="card glass">
@@ -387,11 +389,11 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
 (function(){
   'use strict';
 
+  // Only display preferences survive a reload. Everything else (loaded file,
+  // scan history, current session) is purged on refresh by design: this is a
+  // single-use tool — load the Excel file, scan the labels, done.
   var LS_THEME = 'rm_theme';
   var LS_SOUND = 'rm_sound';
-  var LS_WORKBOOK = 'rm_workbook_v1';
-  var LS_HISTORY = 'rm_history_v1';
-  var LS_SESSION = 'rm_session_v1';
 
   var state = {
     allRows: [],          // every data row read from the workbook
@@ -461,71 +463,8 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   }
 
   // ---------------------------------------------------------------
-  // Persistence
+  // Display-preference persistence (theme & sound only — see note above)
   // ---------------------------------------------------------------
-  function persistWorkbook() {
-    try {
-      var serial = {
-        fileName: state.fileName,
-        loadedAt: state.loadedAt,
-        dtSheets: state.dtSheets,
-        allRows: state.allRows.map(function (r) {
-          return Object.assign({}, r, {
-            aLivrerLe: r.aLivrerLe instanceof Date ? r.aLivrerLe.toISOString() : r.aLivrerLe
-          });
-        })
-      };
-      localStorage.setItem(LS_WORKBOOK, JSON.stringify(serial));
-    } catch (e) { console.warn('Impossible de sauvegarder le fichier chargé:', e); }
-  }
-
-  function restoreWorkbook() {
-    try {
-      var raw = localStorage.getItem(LS_WORKBOOK);
-      if (!raw) return;
-      var data = JSON.parse(raw);
-      state.fileName = data.fileName || '';
-      state.loadedAt = data.loadedAt || '';
-      state.dtSheets = data.dtSheets || [];
-      state.allRows = (data.allRows || []).map(function (r) {
-        var d = r.aLivrerLe;
-        if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(d)) d = new Date(d);
-        return Object.assign({}, r, { aLivrerLe: d });
-      });
-      state.index = new Map();
-      state.allRows.forEach(function (r) {
-        if (!r.sscc) return;
-        if (!state.index.has(r.sscc)) state.index.set(r.sscc, []);
-        state.index.get(r.sscc).push(r);
-      });
-    } catch (e) { console.warn('Impossible de restaurer le fichier chargé:', e); }
-  }
-
-  function persistHistory() {
-    try { localStorage.setItem(LS_HISTORY, JSON.stringify(state.history)); }
-    catch (e) { console.warn('Impossible de sauvegarder l\'historique:', e); }
-  }
-
-  function restoreHistory() {
-    try {
-      var raw = localStorage.getItem(LS_HISTORY);
-      if (raw) state.history = JSON.parse(raw);
-    } catch (e) { console.warn('Impossible de restaurer l\'historique:', e); }
-  }
-
-  function persistSession() {
-    try {
-      if (state.session) localStorage.setItem(LS_SESSION, JSON.stringify(state.session));
-      else localStorage.removeItem(LS_SESSION);
-    } catch (e) { console.warn('Impossible de sauvegarder la session:', e); }
-  }
-
-  function restoreSession() {
-    try {
-      var raw = localStorage.getItem(LS_SESSION);
-      if (raw) state.session = JSON.parse(raw);
-    } catch (e) { console.warn('Impossible de restaurer la session:', e); }
-  }
 
   // ---------------------------------------------------------------
   // Helpers
@@ -596,10 +535,23 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   }
 
   function renderStats() {
-    var scannable = state.allRows.filter(function (r) { return r.sscc; });
+    var scopeNote = $('statsScope');
+
+    if (!state.session) {
+      $('statTotal').textContent = '—';
+      $('statDone').textContent = '—';
+      $('statLeft').textContent = '—';
+      $('progressFill').style.width = '0%';
+      scopeNote.textContent = state.fileName ? 'Scannez une première palette pour démarrer le comptage du rapatriement.' : '';
+      return;
+    }
+
+    var scannable = state.allRows.filter(function (r) { return r.sscc && r.dt === state.session.dt; });
     var total = scannable.length;
     var scannedSet = new Set();
-    state.history.forEach(function (h) { if (h.status === 'ok' || h.status === 'warn' || h.status === 'other') scannedSet.add(h.sscc); });
+    state.history.forEach(function (h) {
+      if (h.dt === state.session.dt && (h.status === 'ok' || h.status === 'warn')) scannedSet.add(h.sscc);
+    });
     var done = scannable.filter(function (r) { return scannedSet.has(r.sscc); }).length;
     var left = total - done;
 
@@ -607,6 +559,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     $('statDone').textContent = done;
     $('statLeft').textContent = left;
     $('progressFill').style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+    scopeNote.textContent = 'DT ' + state.session.dt + (state.session.jour ? ' · ' + state.session.jour : '');
   }
 
   function renderResult(status, rec, code, duplicate) {
@@ -730,7 +683,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       state.history.push({ time: now, sscc: code, um: '-', article: '-', designation: '', dt: '-', status: 'err' });
       playSound('err');
       showToast('err', 'SSCC introuvable', 'Le code ' + code + ' ne correspond à aucune ligne du fichier chargé.');
-      persistHistory();
       renderHistory();
       renderStats();
       return;
@@ -740,7 +692,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
 
     if (!state.session) {
       state.session = { dt: rec.dt, jour: dayName(rec.aLivrerLe), dateLabel: fmtDate(rec.aLivrerLe) };
-      persistSession();
       renderSessionBanner();
       showToast('info', 'Début du rapatriement', 'DT ' + rec.dt + ' — ' + (state.session.jour ? state.session.jour + ' ' : '') + state.session.dateLabel);
     } else if (rec.dt !== state.session.dt) {
@@ -748,7 +699,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       state.history.push({ time: now, sscc: code, um: rec.um, article: rec.article, designation: rec.designation, dt: rec.dt, status: 'other' });
       playSound('err');
       showToast('warn', 'Autre rapatriement !', 'Ce SSCC appartient au DT ' + rec.dt + ', pas au rapatriement en cours (DT ' + state.session.dt + ').');
-      persistHistory();
       renderHistory();
       renderStats();
       return;
@@ -760,7 +710,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     state.history.push({ time: now, sscc: code, um: rec.um, article: rec.article, designation: rec.designation, dt: rec.dt, status: status });
     playSound(status);
 
-    persistHistory();
     renderHistory();
     renderStats();
   }
@@ -812,8 +761,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
         state.fileName = file.name;
         state.loadedAt = new Date().toISOString();
         state.session = null;
-        persistWorkbook();
-        persistSession();
         renderFileStatus();
         renderSessionBanner();
         renderStats();
@@ -855,9 +802,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     try { savedSound = localStorage.getItem(LS_SOUND); } catch (e) {}
     applySound(savedSound !== '0');
 
-    restoreWorkbook();
-    restoreHistory();
-    restoreSession();
     renderFileStatus();
     renderSessionBanner();
     renderStats();
@@ -916,8 +860,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       if (!confirm('Vider tout l\'historique des scans ? Cette action est irréversible.')) return;
       state.history = [];
       state.session = null;
-      persistHistory();
-      persistSession();
       renderHistory();
       renderStats();
       renderSessionBanner();
@@ -925,7 +867,6 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
 
     $('endSessionBtn').addEventListener('click', function () {
       state.session = null;
-      persistSession();
       renderSessionBanner();
       showToast('info', 'Rapatriement terminé', 'Le prochain scan démarrera un nouveau rapatriement.');
     });
