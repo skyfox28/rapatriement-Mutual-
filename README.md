@@ -1,5 +1,7 @@
 # Rapatriement Mutual
 
+Créé par Galaad Poivey
+
 Application web pour faire le lien entre le scan d'un **SSCC Mutual** (code-barre sur la palette reçue) et **votre UM** à coller physiquement dessus.
 
 ## Utilisation
