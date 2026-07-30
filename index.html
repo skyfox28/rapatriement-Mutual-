@@ -835,6 +835,19 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
       scanInput.value = '';
       scanInput.focus();
     });
+
+    // A real douchette types the code then sends Enter, which the submit above already
+    // handles. When testing by hand (copy/paste, no scanner), a paste never fires Enter,
+    // so validate as soon as a code lands in the field via paste or autocomplete.
+    scanInput.addEventListener('paste', function () {
+      setTimeout(function () {
+        var val = scanInput.value.trim();
+        if (!val) return;
+        handleScan(val);
+        scanInput.value = '';
+        scanInput.focus();
+      }, 0);
+    });
     scanInput.focus();
 
     // Keep the scan field focused so the USB scanner (keyboard emulation) always has a target.
