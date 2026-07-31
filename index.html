@@ -408,6 +408,25 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
   };
 
   // ---------------------------------------------------------------
+  // SSCC normalization
+  // ---------------------------------------------------------------
+  // A douchette reading a GS1 label sends the application identifier "00"
+  // followed by the 18-digit SSCC (so 20 digits), sometimes wrapped in
+  // parentheses or separated by FNC1/GS characters. The Excel file stores the
+  // bare 18 digits, so strip everything down to digits and drop the AI prefix.
+  function normalizeSscc(v) {
+    var digits = String(v == null ? '' : v).replace(/\D/g, '');
+    if (digits.length === 20 && digits.slice(0, 2) === '00') digits = digits.slice(2);
+    return digits;
+  }
+
+  function addToIndex(index, key, record) {
+    if (!key) return;
+    if (!index.has(key)) index.set(key, []);
+    index.get(key).push(record);
+  }
+
+  // ---------------------------------------------------------------
   // Excel parsing
   // ---------------------------------------------------------------
   function parseWorkbook(workbook) {
@@ -452,8 +471,9 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
         foundRows = true;
 
         if (record.sscc) {
-          if (!indexBySscc.has(record.sscc)) indexBySscc.set(record.sscc, []);
-          indexBySscc.get(record.sscc).push(record);
+          addToIndex(indexBySscc, record.sscc, record);
+          var norm = normalizeSscc(record.sscc);
+          if (norm && norm !== record.sscc) addToIndex(indexBySscc, norm, record);
         }
       }
       if (foundRows) dtSheets.push(dtName);
@@ -632,11 +652,13 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     var body = $('searchResults');
     if (!query || query.trim().length < 2) { body.innerHTML = ''; return; }
     var q = query.trim().toLowerCase();
+    var qNorm = normalizeSscc(query);
     var matches = state.allRows.filter(function (r) {
       return (r.article && r.article.toLowerCase().indexOf(q) !== -1) ||
         (r.designation && r.designation.toLowerCase().indexOf(q) !== -1) ||
         (r.sscc && r.sscc.toLowerCase().indexOf(q) !== -1) ||
-        (r.um && r.um.toLowerCase().indexOf(q) !== -1);
+        (r.um && r.um.toLowerCase().indexOf(q) !== -1) ||
+        (qNorm.length >= 2 && r.sscc && normalizeSscc(r.sscc).indexOf(qNorm) !== -1);
     }).slice(0, 30);
     body.innerHTML = matches.map(function (r) {
       return '<tr><td>' + escapeHtml(r.article) + '</td><td>' + escapeHtml(r.designation) + '</td>' +
@@ -675,7 +697,7 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     var code = String(raw || '').trim();
     if (!code) return;
 
-    var matches = state.index.get(code);
+    var matches = state.index.get(code) || state.index.get(normalizeSscc(code));
     var now = new Date().toISOString();
 
     if (!matches || !matches.length) {
@@ -689,6 +711,9 @@ if(xr(e,"index.xml"))throw new Error("Unsupported NUMBERS 09 file");throw new Er
     }
 
     var rec = matches[0];
+    // Always work with the SSCC as written in the file, so history, duplicate
+    // detection and counters stay consistent whatever prefix the scanner sent.
+    code = rec.sscc;
 
     if (!state.session) {
       state.session = { dt: rec.dt, jour: dayName(rec.aLivrerLe), dateLabel: fmtDate(rec.aLivrerLe) };
