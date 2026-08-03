@@ -293,6 +293,7 @@ body{
         <p>Scannez le SSCC · obtenez l'UM</p>
       </div>
     </div>
+    <a class="icon-btn" href="index.html" title="Version PC (douchette)" style="text-decoration:none;font-size:15px;">💻</a>
     <button class="icon-btn" id="soundToggle" title="Activer/couper le son">🔊</button>
   </div>
 
@@ -926,9 +927,10 @@ var RM = (function () {
     hints.set(ZXing.DecodeHintType.ASSUME_GS1, true);
 
     var reader = new ZXing.BrowserMultiFormatReader(hints);
-    // Un décodage toutes les ~150 ms : largement assez réactif, et ça économise
-    // la batterie par rapport au rythme par défaut.
-    reader.timeBetweenDecodingAttempts = 150;
+    // Décodage toutes les ~60 ms : réactivité maximale pour enchaîner les
+    // palettes rapidement (un peu plus de CPU, largement acceptable sur un
+    // scan qui ne dure que quelques secondes à chaque fois).
+    reader.timeBetweenDecodingAttempts = 60;
     return reader;
   }
 
@@ -963,8 +965,14 @@ var RM = (function () {
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' }, // caméra arrière
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          // 720p décode plus vite que le 1080p demandé avant (moins de pixels
+          // à traiter par tentative) tout en restant net à la distance où l'on
+          // vise un code-barre ; on demande aussi la mise au point continue
+          // pour ne pas avoir à retoucher l'écran entre deux palettes.
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 },
+          focusMode: { ideal: 'continuous' }
         },
         audio: false
       });
@@ -1004,7 +1012,21 @@ var RM = (function () {
     scanning = true;
     $('camToggleBtn').textContent = '⏸️ Arrêter la caméra';
     setupTorch();
+    setupContinuousFocus();
     requestWakeLock();
+  }
+
+  // Certains navigateurs (Chrome Android notamment) n'honorent le focusMode
+  // demandé dans getUserMedia que si on le repasse explicitement via
+  // applyConstraints une fois la piste vidéo obtenue.
+  function setupContinuousFocus() {
+    if (!stream) return;
+    var track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    var caps;
+    try { caps = track.getCapabilities(); } catch (e) { return; }
+    if (!caps || !caps.focusMode || caps.focusMode.indexOf('continuous') === -1) return;
+    track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
   }
 
   function stopCamera() {
