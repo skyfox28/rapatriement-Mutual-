@@ -19,6 +19,8 @@
   var lastCode = '';
   var lastCodeAt = 0;
   var REPEAT_DELAY_MS = 2500; // même code ignoré pendant ce délai
+  var noDetectTimer = null;
+  var NO_DETECT_HINT_MS = 6000; // aucun code lu depuis ce délai -> on suggère une piste
 
   // ---------------------------------------------------------------
   // Rendu
@@ -180,6 +182,18 @@
     lastCode = text;
     lastCodeAt = now;
     handleScan(text);
+    armNoDetectHint(); // repart pour la prochaine palette
+  }
+
+  // Après quelques secondes sans le moindre code lu, on suggère les causes
+  // les plus courantes plutôt que de laisser l'utilisateur viser dans le vide.
+  function armNoDetectHint() {
+    clearTimeout(noDetectTimer);
+    noDetectTimer = setTimeout(function () {
+      if (!scanning) return;
+      showToast('warn', 'Rien détecté',
+        'Rapprochez-vous du code-barre, évitez les reflets (ne visez pas un écran allumé), assurez un bon éclairage — ou saisissez le SSCC à la main ci-dessous.');
+    }, NO_DETECT_HINT_MS);
   }
 
   // ---------------------------------------------------------------
@@ -188,19 +202,20 @@
   function buildReader() {
     var hints = new Map();
     var F = ZXing.BarcodeFormat;
-    // Les étiquettes palette SSCC sont en GS1-128 ; on accepte aussi les
-    // formats voisins qu'on peut croiser sur un carton.
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      F.CODE_128, F.ITF, F.CODE_39, F.EAN_13, F.DATA_MATRIX, F.QR_CODE
-    ]);
+    // Les étiquettes palette SSCC sont en Code128/GS1-128, et l'ITF (2 sur 5
+    // entrelacé) se croise aussi sur des cartons. On ne demande QUE ces
+    // formats : chaque tentative de décodage se concentre dessus au lieu de
+    // gaspiller du temps à tester QR/DataMatrix/EAN13/Code39, ce qui rend le
+    // scan à la fois plus rapide ET plus fiable.
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.CODE_128, F.ITF]);
     hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
     hints.set(ZXing.DecodeHintType.ASSUME_GS1, true);
 
     var reader = new ZXing.BrowserMultiFormatReader(hints);
-    // Décodage toutes les ~60 ms : réactivité maximale pour enchaîner les
-    // palettes rapidement (un peu plus de CPU, largement acceptable sur un
-    // scan qui ne dure que quelques secondes à chaque fois).
-    reader.timeBetweenDecodingAttempts = 60;
+    // Décodage toutes les ~100 ms : rapide, sans saturer le CPU d'un téléphone
+    // d'entrepôt d'entrée de gamme (un intervalle trop court peut faire
+    // s'accumuler les tentatives et paradoxalement ralentir la détection).
+    reader.timeBetweenDecodingAttempts = 100;
     return reader;
   }
 
@@ -235,14 +250,14 @@
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' }, // caméra arrière
-          // 720p décode plus vite que le 1080p demandé avant (moins de pixels
-          // à traiter par tentative) tout en restant net à la distance où l'on
-          // vise un code-barre ; on demande aussi la mise au point continue
-          // pour ne pas avoir à retoucher l'écran entre deux palettes.
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 },
-          focusMode: { ideal: 'continuous' }
+          // Haute résolution : un code-barre a besoin de finesse de détail
+          // pour être décodé net, surtout GS1-128 qui a beaucoup de chiffres.
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+          // La mise au point continue est demandée séparément après coup, via
+          // applyConstraints (setupContinuousFocus) : la mettre ici, dans les
+          // contraintes principales, expose au risque qu'un navigateur qui ne
+          // connaît pas "focusMode" rejette toute la demande de caméra.
         },
         audio: false
       });
@@ -284,6 +299,7 @@
     setupTorch();
     setupContinuousFocus();
     requestWakeLock();
+    armNoDetectHint();
   }
 
   // Certains navigateurs (Chrome Android notamment) n'honorent le focusMode
@@ -301,6 +317,7 @@
 
   function stopCamera() {
     scanning = false;
+    clearTimeout(noDetectTimer);
     try { if (codeReader) codeReader.reset(); } catch (e) {}
     if (stream) {
       stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
