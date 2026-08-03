@@ -1,0 +1,117 @@
+<div class="bg-blobs">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">📦</div>
+      <div>
+        <h1>Rapatriement Mutual</h1>
+        <p>Scan SSCC Mutual → UM à coller sur la palette</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="soundToggle" title="Activer/couper le son">🔊</button>
+      <button class="icon-btn" id="themeToggle" title="Changer le thème">🌙</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
+    <div>
+      <div class="card glass">
+        <h2>📁 Fichier de rapatriement</h2>
+        <p class="hint">Chargez l'export Excel hebdomadaire (article, quantité, SSCC Mutual, UM).</p>
+        <div class="dropzone" id="dropzone">
+          <div class="dz-icon">⬆️</div>
+          <div class="dz-title">Glissez le fichier .xlsx ici</div>
+          <div class="dz-sub">ou cliquez pour parcourir vos fichiers</div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm" hidden />
+        </div>
+        <div class="file-status" id="fileStatus">
+          <div class="fs-name" id="fsName"></div>
+          <div class="fs-meta" id="fsMeta"></div>
+        </div>
+        <div class="stats-row" id="statsRow" style="display:none;">
+          <div class="stat-pill"><div class="num" id="statTotal">0</div><div class="lbl">Palettes</div></div>
+          <div class="stat-pill"><div class="num" id="statDone">0</div><div class="lbl">Scannées</div></div>
+          <div class="stat-pill"><div class="num" id="statLeft">0</div><div class="lbl">Restantes</div></div>
+        </div>
+        <div class="progress-bar" id="progressBar" style="display:none;">
+          <div class="progress-fill" id="progressFill" style="width:0%;"></div>
+        </div>
+        <div class="stats-scope" id="statsScope"></div>
+      </div>
+
+      <div class="card glass">
+        <h2>🔍 Recherche manuelle</h2>
+        <p class="hint">Si le code-barre est illisible, cherchez par article, désignation, SSCC ou UM.</p>
+        <input type="text" class="search-box" id="manualSearch" placeholder="Ex : 901737487, pepites, UM..." />
+        <div class="hist-table-wrap" style="max-height:220px;">
+          <table>
+            <thead><tr><th>Article</th><th>Désignation</th><th>SSCC</th><th>UM</th></tr></thead>
+            <tbody id="searchResults"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <div class="card glass scan-card">
+        <div class="scan-ring">🔦</div>
+        <h2 style="justify-content:center;">Zone de scan</h2>
+        <p class="hint">Cliquez dans le champ, puis scannez le SSCC avec la douchette.</p>
+
+        <div class="session-banner" id="sessionBanner" style="display:none;">
+          <div>
+            <div class="sb-title" id="sbTitle"></div>
+            <div class="sb-sub" id="sbSub"></div>
+          </div>
+          <button class="btn-sm" id="endSessionBtn">Terminer</button>
+        </div>
+
+        <form class="scan-form" id="scanForm" autocomplete="off">
+          <input type="text" class="scan-input" id="scanInput" placeholder="Scannez ou saisissez un SSCC..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <button type="submit" class="scan-submit">Valider</button>
+        </form>
+
+        <div class="result" id="result">
+          <div class="result-inner">
+            <div class="result-tag" id="resultTag"></div>
+            <div class="um-value" id="umValue"></div>
+            <div class="um-caption" id="umCaption"></div>
+            <div class="result-details" id="resultDetails"></div>
+            <button class="copy-btn" id="copyUmBtn" style="display:none;">📋 Copier l'UM</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card glass">
+        <div class="history-head">
+          <h2 style="margin:0;">🕓 Historique des scans</h2>
+          <div class="history-actions">
+            <button class="btn-sm" id="exportBtn">⬇️ Exporter CSV</button>
+            <button class="btn-sm" id="clearHistBtn">🗑️ Vider</button>
+          </div>
+        </div>
+        <div class="hist-table-wrap" style="margin-top:14px;">
+          <table>
+            <thead><tr><th>Heure</th><th>SSCC</th><th>UM</th><th>Article</th><th>DT</th><th>Statut</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+          <div class="empty-hint" id="historyEmpty">Aucun scan pour le moment.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Rapatriement Mutual — fonctionne 100% hors-ligne, aucune donnée n'est envoyée sur internet.<br />Créé par Galaad Poivey</div>
+</div>

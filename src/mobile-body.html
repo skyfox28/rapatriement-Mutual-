@@ -1,0 +1,112 @@
+<div class="bg-blobs">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">📦</div>
+      <div>
+        <h1>Rapatriement Mutual</h1>
+        <p>Scannez le SSCC · obtenez l'UM</p>
+      </div>
+    </div>
+    <button class="icon-btn" id="soundToggle" title="Activer/couper le son">🔊</button>
+  </div>
+
+  <!-- Résultat : placé en haut pour être visible sans faire défiler après un scan -->
+  <div class="result" id="result">
+    <div class="result-inner">
+      <div class="result-tag" id="resultTag"></div>
+      <div class="um-label" id="umLabel">UM à coller sur la palette</div>
+      <div class="um-value" id="umValue"></div>
+      <div class="um-caption" id="umCaption"></div>
+      <div class="result-details" id="resultDetails"></div>
+    </div>
+  </div>
+
+  <div class="session-banner" id="sessionBanner">
+    <div>
+      <div class="sb-title" id="sbTitle"></div>
+      <div class="sb-sub" id="sbSub"></div>
+    </div>
+    <button class="btn-sm" id="endSessionBtn">Terminer</button>
+  </div>
+
+  <!-- Étape 1 : le fichier -->
+  <div class="card glass">
+    <h2>1️⃣ Fichier de rapatriement</h2>
+    <p class="hint">Chargez l'Excel de la semaine depuis Fichiers, iCloud ou une pièce jointe.</p>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Choisir le fichier .xlsx</div>
+      <div class="dz-sub">Fichiers · iCloud · Mail</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm" hidden />
+    </div>
+    <div class="file-status" id="fileStatus">
+      <div class="fs-name" id="fsName"></div>
+      <div class="fs-meta" id="fsMeta"></div>
+    </div>
+    <div class="stats-row" id="statsRow" style="display:none;">
+      <div class="stat-pill"><div class="num" id="statTotal">—</div><div class="lbl">Palettes</div></div>
+      <div class="stat-pill"><div class="num" id="statDone">—</div><div class="lbl">Scannées</div></div>
+      <div class="stat-pill"><div class="num" id="statLeft">—</div><div class="lbl">Restantes</div></div>
+    </div>
+    <div class="progress-bar" id="progressBar" style="display:none;">
+      <div class="progress-fill" id="progressFill" style="width:0%;"></div>
+    </div>
+    <div class="stats-scope" id="statsScope"></div>
+  </div>
+
+  <!-- Étape 2 : la caméra -->
+  <div class="card glass camera-card">
+    <h2>2️⃣ Scanner le SSCC</h2>
+    <p class="hint">Visez le code-barre de l'étiquette Mutual et alignez-le dans le cadre.</p>
+
+    <div class="viewfinder" id="viewfinder">
+      <div class="vf-idle" id="vfIdle">
+        <div class="vf-icon">📷</div>
+        Appuyez sur <b>Démarrer la caméra</b><br />puis autorisez l'accès à l'appareil photo.
+      </div>
+      <video id="video" playsinline muted autoplay style="display:none;"></video>
+      <div class="vf-frame" id="vfFrame"><div class="vf-laser"></div></div>
+    </div>
+
+    <div class="cam-actions">
+      <button class="btn" id="camToggleBtn">▶️ Démarrer la caméra</button>
+      <button class="btn btn-ghost btn-narrow" id="torchBtn" style="display:none;" title="Lampe">🔦</button>
+    </div>
+
+    <div class="cam-error" id="camError"></div>
+
+    <form class="manual-form" id="manualForm" autocomplete="off">
+      <input type="text" class="manual-input" id="manualInput" inputmode="numeric"
+             placeholder="…ou tapez le SSCC à la main"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button type="submit" class="btn btn-ghost btn-narrow">OK</button>
+    </form>
+  </div>
+
+  <!-- Historique -->
+  <div class="card glass">
+    <div class="history-head">
+      <h2 style="margin:0;">🕓 Scans</h2>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-sm" id="exportBtn">⬇️ CSV</button>
+        <button class="btn-sm" id="clearHistBtn">🗑️</button>
+      </div>
+    </div>
+    <div class="hist-list" id="historyList"></div>
+    <div class="empty-hint" id="historyEmpty">Aucun scan pour le moment.</div>
+  </div>
+
+  <div class="footer-note">
+    Rapatriement Mutual — 100% hors-ligne, aucune donnée n'est envoyée sur internet.<br />
+    Créé par Galaad Poivey
+  </div>
+</div>
